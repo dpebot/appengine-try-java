@@ -1,3 +1,4 @@
+#!/usr/bin/env bash
 # Copyright 2016 Google Inc. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -11,13 +12,22 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-language: java
-jdk:
-- oraclejdk7
-- oraclejdk8
-script: mvn verify
-after_success:
-- bash <(curl -s https://codecov.io/bash)
-branches:
-  only:
-  - master
+
+set -e
+set -x
+# Set pipefail so that `egrep` does not eat the exit code.
+set -o pipefail
+
+GOOGLE_CLOUD_SDK_ROOT="$(gcloud --format='value(installation.sdk_root)' info)"
+
+mvn --batch-mode clean verify | egrep -v "(^\[INFO\] Download|^\[INFO\].*skipping)"
+
+# Run tests using App Engine local devserver.
+test_localhost() {
+  if [[ ! -d java-repo-tools ]]; then
+		git clone https://github.com/GoogleCloudPlatform/java-repo-tools.git
+	fi
+  ./java-repo-tools/scripts/test-localhost.sh appengine:run . -- -DcloudSdkPath="$GOOGLE_CLOUD_SDK_ROOT"
+}
+test_localhost
+
